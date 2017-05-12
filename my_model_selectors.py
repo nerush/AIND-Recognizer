@@ -29,7 +29,13 @@ class ModelSelector(object):
         self.verbose = verbose
 
     def select(self):
-        raise NotImplementedError
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        try:
+            states = range(self.min_n_components, self.max_n_components + 1)
+            _, model = max(map(lambda n: self.select_model(n), states))
+            return model
+        except:
+            return self.base_model(self.n_constant)
 
     def base_model(self, num_states):
         # with warnings.catch_warnings():
@@ -68,16 +74,19 @@ class SelectorBIC(ModelSelector):
     Bayesian information criteria: BIC = -2 * logL + p * logN
     """
 
-    def select(self):
-        """ select the best model for self.this_word based on
-        BIC score for n between self.min_n_components and self.max_n_components
-
-        :return: GaussianHMM object
+    def select_model(self, num_states):
         """
-        warnings.filterwarnings("ignore", category=DeprecationWarning)
+            Calculate the BIC score
+        """
+        model = self.base_model(num_states)
+        logL = model.score(self.X, self.lengths)
 
-        # TODO implement model selection based on BIC scores
-        raise NotImplementedError
+        N, num_features = self.X.shape
+        p = num_states**2 + 2*num_features*num_states-1
+
+        logN = np.log(N)
+        BIC = -2 * logL + p * logN
+        return BIC, model
 
 
 class SelectorDIC(ModelSelector):
@@ -89,20 +98,32 @@ class SelectorDIC(ModelSelector):
     DIC = log(P(X(i)) - 1/(M-1)SUM(log(P(X(all but i))
     '''
 
-    def select(self):
-        warnings.filterwarnings("ignore", category=DeprecationWarning)
+    def select_model(self, num_states):
+        model = self.base_model(num_states)
+        logL = model.score(self.X, self.lengths)
 
-        # TODO implement model selection based on DIC scores
-        raise NotImplementedError
+        scores = [model.score(x, l) for i, (x, l) in self.hwords.items() if i != self.this_word]
+        DIC = logL - sum(scores)/(len(scores) - 1)
+        return DIC, model
 
 
 class SelectorCV(ModelSelector):
     ''' select best model based on average log Likelihood of cross-validation folds
 
     '''
+    def select_model(self, num_states):
+        nos = math.floor(math.log(len(self.sequences), 2) + 1)
+        folds = KFold(n_splits=nos)
+        scores = []
 
-    def select(self):
-        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        for train_idx, test_idx in folds.split(self.sequences):
+            self.X, self.lengths = combine_sequences(train_idx, self.sequences)
 
-        # TODO implement model selection using CV
-        raise NotImplementedError
+            model = self.base_model(num_states)
+
+            x, l = combine_sequences(test_idx, self.sequences)
+
+            score = model.score(x, l)
+            scores.append(score)
+
+        return np.mean(scores), model
