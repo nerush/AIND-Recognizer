@@ -84,7 +84,7 @@ class SelectorBIC(ModelSelector):
         p = num_states**2 + 2*num_features*num_states-1
         logN = np.log(N)
         BIC = -2 * logL + p * logN
-        return BIC, model
+        return -BIC, model
 
 
 class SelectorDIC(ModelSelector):
@@ -100,7 +100,7 @@ class SelectorDIC(ModelSelector):
         model = self.base_model(num_states)
         logL = model.score(self.X, self.lengths)
         scores = [model.score(x, l) for i, (x, l) in self.hwords.items() if i != self.this_word]
-        DIC = logL - sum(scores)/(len(scores) - 1)
+        DIC = logL - sum(scores)/(len(scores))
         return DIC, model
 
 

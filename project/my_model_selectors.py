@@ -80,13 +80,11 @@ class SelectorBIC(ModelSelector):
         """
         model = self.base_model(num_states)
         logL = model.score(self.X, self.lengths)
-
         N, num_features = self.X.shape
         p = num_states**2 + 2*num_features*num_states-1
-
         logN = np.log(N)
         BIC = -2 * logL + p * logN
-        return BIC, model
+        return -BIC, model
 
 
 class SelectorDIC(ModelSelector):
@@ -101,9 +99,8 @@ class SelectorDIC(ModelSelector):
     def select_model(self, num_states):
         model = self.base_model(num_states)
         logL = model.score(self.X, self.lengths)
-
         scores = [model.score(x, l) for i, (x, l) in self.hwords.items() if i != self.this_word]
-        DIC = logL - sum(scores)/(len(scores) - 1)
+        DIC = logL - sum(scores)/(len(scores))
         return DIC, model
 
 
@@ -115,15 +112,10 @@ class SelectorCV(ModelSelector):
         nos = math.floor(math.log(len(self.sequences), 2) + 1)
         folds = KFold(n_splits=nos)
         scores = []
-
         for train_idx, test_idx in folds.split(self.sequences):
             self.X, self.lengths = combine_sequences(train_idx, self.sequences)
-
             model = self.base_model(num_states)
-
             x, l = combine_sequences(test_idx, self.sequences)
-
             score = model.score(x, l)
             scores.append(score)
-
         return np.mean(scores), model
